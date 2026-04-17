@@ -1,0 +1,40 @@
+version: '3.6'
+
+services:
+  gitlab-runner:
+    image: gitlab/gitlab-runner:latest
+    container_name: gitlab-runner
+    restart: always
+    volumes:
+      - ./gitlab-runner/config:/etc/gitlab-runner
+      - /var/run/docker.sock:/var/run/docker.sock
+
+stages:
+  - scan
+  - build
+  - deploy
+
+variables:
+  DOCKER_TLS_CERTDIR: ""
+
+scan:
+  stage: scan
+  image: aquasec/trivy
+  script:
+    - trivy fs --exit-code 1 --severity CRITICAL
+
+sast:
+  stage: scan
+  image: returntocorp/semgrep
+  script:
+    - semgrep --config=p/default
+
+build:
+  stage: build
+  script:
+    - docker build -t coffee-shop:latest .
+
+deploy:
+  stage: deploy
+  script:
+    - kubectl apply -f deployment.yaml
